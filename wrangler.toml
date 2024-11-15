@@ -2,6 +2,7 @@
 name = "screenshot-worker"
 main = "src/index.js"
 compatibility_date = "2024-11-12"
+compatibility_flags = [ "nodejs_compat"]
 
 # Workers Logs
 # Docs: https://developers.cloudflare.com/workers/observability/logs/workers-logs/
@@ -36,8 +37,8 @@ enabled = true
 
 # Bind a headless browser instance running on Cloudflare's global network.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#browser-rendering
-# [browser]
-# binding = "MY_BROWSER"
+[browser]
+binding = "MYBROWSER"
 
 # Bind a D1 database. D1 is Cloudflare’s native serverless SQL database.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#d1-databases
@@ -56,14 +57,14 @@ enabled = true
 # Durable Objects can live for as long as needed. Use these when you need a long-running "server", such as in realtime apps.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#durable-objects
 [[durable_objects.bindings]]
-name = "MY_DURABLE_OBJECT"
-class_name = "MyDurableObject"
+name = "BROWSER"
+class_name = "Browser"
 
 # Durable Object migrations.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#migrations
 [[migrations]]
 tag = "v1"
-new_classes = ["MyDurableObject"]
+new_classes = ["Browser"]
 
 # Bind a Hyperdrive configuration. Use to accelerate access to your existing databases from Cloudflare Workers.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#hyperdrive
@@ -96,9 +97,11 @@ new_classes = ["MyDurableObject"]
 
 # Bind an R2 Bucket. Use R2 to store arbitrarily large blobs of data, such as files.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#r2-buckets
-# [[r2_buckets]]
-# binding = "MY_BUCKET"
-# bucket_name = "my-bucket"
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "screenshots"
+preview_bucket_name = "screenshots-test"
+
 
 # Bind another Worker service. Use this binding to call another Worker without network overhead.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
