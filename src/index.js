@@ -2,23 +2,21 @@ import puppeteer from "@cloudflare/puppeteer";
 
 export default {
 	async fetch(request, env) {
-		const { searchParams } = new URL(request.url);
-		const url = searchParams.get("url");
-
-		if (!url) {
-			return new Response("Please add an ?url=https://example.com/ parameter");
+		console.log(request)
+		if (request.method !== 'POST') {
+			return new Response('Method not allowed', { status: 405 });
 		}
 		let id = env.BROWSER.idFromName("browser");
 		let obj = env.BROWSER.get(id);
 
 		// Send a request to the Durable Object, then await its response.
 		// let resp = await obj.fetch(request.url);
-		let resp = await obj.fetch(new Request(request.url))
+		let resp = await obj.fetch(request)
 		return resp;
 	},
 };
 
-const KEEP_BROWSER_ALIVE_IN_SECONDS = 60;
+const KEEP_BROWSER_ALIVE_IN_SECONDS = 120;
 
 export class Browser {
 	constructor(state, env) {
@@ -29,44 +27,47 @@ export class Browser {
 	}
 
 	async fetch(request) {
-		const { searchParams } = new URL(request.url);
-		const url = searchParams.get("url");
+		if (request.method !== 'POST') {
+			return new Response('Method not allowed', { status: 405 })
+		}
+		const body = await request.json()
+		console.log("body::::::::::", body.id, body.url, body.directory_name)
+		const url = body.url
+		const id = body.id
+		const directory_name = body.directory_name
+		// const { searchParams } = new URL(request.url);
+		// const url = searchParams.get("url");
+		// for (const urlData of urls) {
+		// console.log("urlData:::::::::", urlData)
 		const normalizedUrl = new URL(url).toString(); // normalize
-		// screen resolutions to test out
-		const width = [1920, 1366, 1536, 360, 414];
-		const height = [1080, 768, 864, 640, 896];
-
-		// use the current date and time to create a folder structure for R2
-		const nowDate = new Date();
-		var coeff = 1000 * 60 * 5;
-		var roundedDate = new Date(
-			Math.round(nowDate.getTime() / coeff) * coeff,
-		).toString();
-		var folder = roundedDate.split(" GMT")[0];
+		// const width = [1920, 1366, 1536, 360, 414];
+		// const height = [1080, 768, 864, 640, 896];
+		const width = [1920, 414];
+		const height = [1080, 896];
 
 		// Check if screenshots for this URL already exist in R2
-		const existingScreenshots = [];
-		for (let i = 0; i < width.length; i++) {
-			const fileName = `${normalizedUrl}_${width[i]}x${height[i]}.jpg`;
-			try {
-				const existing = await this.env.BUCKET.get(folder + "/" + fileName);
-				if (existing) {
-					existingScreenshots.push(await existing.arrayBuffer());
-				}
-			} catch (e) {
-				console.log(`Error checking existing screenshot: ${e}`);
-			}
-		}
+		// const existingScreenshots = [];
+		// for (let i = 0; i < width.length; i++) {
+		// 	const fileName = `${id}_${width[i]}x${height[i]}.jpg`;
+		// 	console.log('filename::::::::', fileName)
+		// 	try {
+		// 		const existing = await this.env.BUCKET.get(directory_name + "/" + fileName);
+		// 		if (existing) {
+		// 			existingScreenshots.push(await existing.arrayBuffer());
+		// 		}
+		// 	} catch (e) {
+		// 		console.log(`Error checking existing screenshot: ${e}`);
+		// 	}
+		// }
 
 		// If we have all screenshots, return them
-		if (existingScreenshots.length === width.length) {
-			return new Response(JSON.stringify({
-				message: "Retrieved existing screenshots",
-				screenshots: existingScreenshots
-			}));
-		}
+		// if (existingScreenshots.length === width.length) {
+		// 	return new Response(JSON.stringify({
+		// 		message: "Retrieved existing screenshots",
+		// 		// screenshots: existingScreenshots
+		// 	}));
+		// }
 
-		//if there's a browser session open, re-use it
 		if (!this.browser || !this.browser.isConnected()) {
 			console.log(`Browser DO: Starting new instance`);
 			try {
@@ -88,12 +89,15 @@ export class Browser {
 		// take screenshots of each screen size
 		for (let i = 0; i < width.length; i++) {
 			await page.setViewport({ width: width[i], height: height[i] });
-			await page.goto(normalizedUrl);
-			const fileName = `${normalizedUrl}_${width[i]}x${height[i]}`;
+			await page.goto(normalizedUrl, {
+				waitUntil: 'networkidle2'
+			});
+			const fileName = `${id}_${width[i]}x${height[i]}`;
+			console.log("Taking screenshot:", fileName)
 			// const sc = await page.screenshot({ path: fileName + ".jpg" });
-			const sc = await page.screenshot();
+			const sc = await page.screenshot({ fullPage: true });
 			screenshots.push(sc);
-			await this.env.BUCKET.put(folder + "/" + fileName + ".jpg", sc);
+			await this.env.BUCKET.put(directory_name + "/" + fileName + ".jpg", sc);
 		}
 
 		// Close tab when there is no more work to be done on the page
@@ -110,6 +114,7 @@ export class Browser {
 			await this.storage.setAlarm(Date.now() + TEN_SECONDS);
 		}
 
+		// }
 		return new Response("success");
 	}
 
